@@ -1,4 +1,3 @@
 {
-  "buildCommand": "bash your-script-name.sh",
-  "outputDirectory": "public"
+  "buildCommand": "bash your-script-name.sh"
 }
