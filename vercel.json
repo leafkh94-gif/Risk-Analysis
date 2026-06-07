@@ -1,4 +1,4 @@
 {
-  "buildCommand": "bash your-script-name.sh",
-  "outputDirectory": "public"
+  "buildCommand": "next build",
+  "framework": "nextjs"
 }
