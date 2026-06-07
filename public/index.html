@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>War Room — Risk Assessment Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0b0d; --surface: #111318; --surface2: #171a20;
+    --border: #1f2330; --border2: #2a2f3d;
+    --amber: #f5a623; --amber-dim: #a06d18; --amber-glow: rgba(245,166,35,0.08);
+    --green: #4caf7a; --red: #e05555;
+    --text: #c8cdd8; --dim: #505668; --white: #edf0f5;
+    --mono: 'IBM Plex Mono', monospace; --display: 'Bebas Neue', sans-serif;
+  }
+  body {
+    font-family: var(--mono); background: var(--bg); color: var(--text);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(245,166,35,0.04) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.015) 39px, rgba(255,255,255,0.015) 40px);
+  }
+  .war-room { display: flex; flex-direction: column; min-height: 100vh; }
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    background: rgba(10,11,13,0.95); position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-icon { font-size: 24px; color: var(--amber); }
+  .logo-title { font-family: var(--display); font-size: 26px; letter-spacing: 4px; color: var(--white); line-height: 1; }
+  .logo-sub { font-size: 9px; letter-spacing: 3px; color: var(--dim); margin-top: 2px; }
+  .header-status { display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 2px; color: var(--dim); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); transition: all 0.3s; }
+  .status-dot.active { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .layout { display: flex; flex: 1; }
+  .sidebar {
+    width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
+    padding: 20px 0; display: flex; flex-direction: column; gap: 2px; background: var(--surface);
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 11px 18px;
+    background: none; border: none; color: var(--dim); font-family: var(--mono);
+    font-size: 10px; letter-spacing: 1.5px; cursor: pointer; transition: all 0.15s;
+    text-align: left; width: 100%;
+  }
+  .nav-item:hover { color: var(--text); background: var(--amber-glow); }
+  .nav-item.active { color: var(--amber); background: var(--amber-glow); border-right: 2px solid var(--amber); }
+  .nav-item.done { color: var(--green); }
+  .nav-item.done.active { color: var(--amber); }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+  .nav-label { flex: 1; }
+  .nav-check { font-size: 10px; color: var(--green); }
+  .run-all-btn {
+    margin: 20px 14px 0; padding: 12px; background: var(--amber); color: #000;
+    border: none; font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
+  }
+  .run-all-btn:hover:not(:disabled) { background: #ffbf47; }
+  .run-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .main-panel { flex: 1; overflow-y: auto; padding: 28px 32px; }
+  .panel-title { font-family: var(--display); font-size: 22px; letter-spacing: 3px; color: var(--white); margin-bottom: 24px; }
+  .dim { color: var(--dim); font-family: var(--mono); font-size: 11px; letter-spacing: 1px; }
+  .setup-panel { max-width: 840px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field-label { font-size: 9px; letter-spacing: 2px; color: var(--amber-dim); }
+  .input {
+    background: var(--surface2); border: 1px solid var(--border2); color: var(--white);
+    font-family: var(--mono); font-size: 13px; padding: 10px 12px; outline: none;
+    transition: border-color 0.2s; resize: vertical; width: 100%;
+  }
+  .input:focus { border-color: var(--amber); background: rgba(245,166,35,0.04); }
+  .input option { background: var(--surface2); }
+  .textarea { resize: vertical; line-height: 1.5; }
+  .proceed-btn, .run-btn {
+    padding: 14px 28px; background: var(--amber); color: #000; border: none;
+    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .proceed-btn:hover:not(:disabled) { background: #ffbf47; }
+  .proceed-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .analysis-panel { max-width: 900px; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .run-btn {
+    padding: 10px 20px; background: none; border: 1px solid var(--amber); color: var(--amber);
+    font-size: 10px; letter-spacing: 2px;
+  }
+  .run-btn:hover:not(:disabled) { background: var(--amber-glow); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .report-btn { border-color: var(--green); color: var(--green); }
+  .report-btn:hover:not(:disabled) { background: rgba(76,175,122,0.08); }
+  .result-panel { background: var(--surface); border: 1px solid var(--border); margin-bottom: 20px; }
+  .result-label { padding: 10px 16px; font-size: 9px; letter-spacing: 3px; color: var(--amber-dim); border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .result-body { padding: 20px; min-height: 120px; }
+  .result-text { font-family: var(--mono); font-size: 12.5px; line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .loading-line { color: var(--amber); font-size: 11px; letter-spacing: 3px; }
+  .cursor { color: var(--amber); animation: blink 0.7s infinite; font-size: 14px; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .error-text { color: var(--red); font-size: 12px; line-height: 1.7; }
+  .module-nav { display: flex; gap: 12px; margin-top: 12px; }
+  .nav-btn { padding: 9px 18px; background: none; border: 1px solid var(--border2); color: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: 2px; cursor: pointer; transition: all 0.15s; }
+  .nav-btn:hover { color: var(--text); border-color: var(--border); }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); }
+  @media (max-width: 720px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 12px; }
+    .sidebar .nav-item { white-space: nowrap; width: auto; }
+    .run-all-btn { margin: 0 0 0 8px; white-space: nowrap; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="war-room">
+  <header class="header">
+    <div class="header-left">
+      <span class="logo-icon">⬛</span>
+      <div>
+        <div class="logo-title">WAR ROOM</div>
+        <div class="logo-sub">UNIFIED RISK ASSESSMENT AGENT</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">READY</span>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main-panel" id="mainPanel"></main>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   WAR ROOM — Gold / Silver / Bitcoin
+   Standalone frontend. Calls /api/analyze (the
+   backend serverless function) instead of calling
+   Anthropic directly. This is what makes it work
+   for any visitor through a shared URL.
+───────────────────────────────────────────── */
+
+const MODULES = [
+  { id: "setup",    label: "01 TRADE SETUP",    icon: "◈" },
+  { id: "macro",    label: "02 MACRO CATALYST",  icon: "◉" },
+  { id: "risk",     label: "03 RISK ENGINE",     icon: "⬡" },
+  { id: "strategy", label: "04 STRATEGY EVAL",   icon: "◆" },
+  { id: "checklist",label: "05 PRE-TRADE CHECK", icon: "✦" },
+  { id: "report",   label: "06 WAR ROOM REPORT", icon: "⬛" },
+];
+
+const SYSTEM_PROMPTS = {
+  macro: `You are a global macro strategist specializing in precious metals and digital assets (Gold, Silver, Bitcoin).
+These assets have NO earnings — they are driven by monetary policy, real yields, inflation, liquidity and the US dollar.
+Analyze the macro backdrop for the specified asset and return these exact sections:
+MONETARY POLICY STANCE (current Fed trajectory, rate cut/hike odds, QT/QE, next FOMC date and what's priced in), REAL YIELDS & DXY (10Y real yield direction and what it implies, US Dollar Index trend — note the inverse relationship with gold/silver), INFLATION & LIQUIDITY (latest CPI/PCE read, global liquidity trend, safe-haven demand), ASSET-SPECIFIC DRIVER (gold: central-bank buying + geopolitical risk; silver: industrial demand + gold/silver ratio; bitcoin: ETF flows, halving cycle, risk appetite), MACRO IMPLICATIONS (bullish case / bearish case / key data releases to monitor).
+Be specific and data-driven. If the user gives no current data, reason from the most recent regime and clearly flag assumptions.`,
+
+  risk: `You are a risk management officer specializing in volatile commodity and crypto positions (Gold, Silver, Bitcoin).
+Provide a comprehensive risk assessment with:
+THESIS RISKS (what macro shift invalidates it — e.g. hawkish Fed repricing, dollar spike, risk-off cascade; historical base rate), POSITION SIZING RISK (account for the high volatility of these assets — silver and bitcoin are far more volatile than gold; reference ATR, max expected drawdown, leverage danger), TIMING RISKS (upcoming FOMC/CPI/PCE dates, options/futures expiry, bitcoin halving or ETF flow dynamics, weekend gap risk for crypto), ALTERNATIVE SCENARIOS (best / base / worst / black-swan such as a liquidity crisis or exchange failure), RISK MITIGATION (specific stop-loss level with justification, hedging via the other metals or inverse correlation, position management rules).`,
+
+  strategy: `You are a quantitative strategist evaluating trading strategies for Gold, Silver and Bitcoin specifically.
+Evaluate the strategy for:
+LOGICAL CONSISTENCY (what edge it exploits in these specific markets — momentum, mean reversion, macro carry; will it persist), POTENTIAL BIASES (survivorship, lookahead, data snooping — and curve-fitting to one volatility regime), REGIME DEPENDENCY (how it performs in risk-on vs risk-off, high-inflation vs disinflation, bull vs bear crypto cycles; note that 24/7 crypto markets differ from metals' session-based trading), PRACTICAL CONCERNS (execution, spread/slippage, overnight & weekend gaps, swap/funding costs — relevant for swap-free accounts), IMPROVEMENTS (specific modifications, macro or volatility filters, complementary diversification across the three assets).`,
+
+  checklist: `You are a trading coach who builds systematic discipline for traders of Gold, Silver and Bitcoin.
+Based on the trader's profile and common mistakes, generate a numbered PRE-TRADE CHECKLIST with these sections: MACRO REGIME ASSESSMENT (Fed stance, real yields, DXY direction confirmed before entry), TECHNICAL ALIGNMENT (trend, key levels, killzone/session timing), INTERMARKET CONFIRMATION (gold/silver ratio, DXY, correlated assets agree with the trade), VOLATILITY & EVENT CHECK (no surprise high-impact data imminent; volatility regime suitable), POSITION SIZING VERIFICATION (sized for THIS asset's volatility — smaller for silver/bitcoin), EXIT CRITERIA CONFIRMATION (stop and target defined before entry), COMMON MISTAKE GUARDS (explicit checks against the trader's stated mistakes).
+Make it specific, actionable, printable. Each item a binary yes/no check.`,
+
+  report: `You are the Chief Investment Officer synthesizing a full war room briefing for a Gold / Silver / Bitcoin trade.
+Given ALL the analysis modules provided, produce the UNIFIED WAR ROOM REPORT with:
+EXECUTIVE SUMMARY (3 sentences max), CONVICTION SCORE (1-10 with reasoning), MACRO ALIGNMENT (does the Fed/yields/dollar backdrop support this trade right now), BULL CASE (top 3 supporting factors), BEAR CASE (top 3 risks), RECOMMENDED ACTION (Enter / Avoid / Wait — with specific conditions), POSITION SIZING GUIDANCE (calibrated to this asset's volatility), KEY TRIGGERS TO MONITOR (specific data releases and price levels), FINAL VERDICT.
+Be decisive. CIOs do not waffle.`,
+};
+
+const buildPrompt = {
+  macro: (s) =>
+    `Asset: ${s.ticker}.\nProvide the macro catalyst analysis for this asset.\n\nCurrent macro data / notes provided by trader (may be empty):\n${s.macroData || "None — reason from the most recent known regime and flag assumptions."}\n\nTrader's thesis: ${s.thesis}`,
+  risk: (s) =>
+    `Trade: ${s.direction} ${s.ticker} at $${s.entryPrice || "?"}\nPosition size: ${s.positionSize || "?"}% of portfolio\nTime horizon: ${s.horizon || "?"}\nThesis: ${s.thesis}\n\nAdditional data:\n${s.priceData || "None provided"}`,
+  strategy: (s) =>
+    `Asset: ${s.ticker}.\nStrategy description:\n${s.strategyDesc || s.thesis}\n\nAdditional context:\n${s.priceData || "None provided"}`,
+  checklist: (s) =>
+    `Trader profile:\nPrimary asset: ${s.ticker}\nStrategy type: ${s.traderType}\nCommon mistakes:\n${s.mistakes || "Not specified"}\n\nTrade being considered: ${s.direction} ${s.ticker} — ${s.thesis}`,
+  report: (s, r) =>
+    `TRADE OVERVIEW:\n${s.direction} ${s.ticker} | Entry: $${s.entryPrice || "?"} | Size: ${s.positionSize || "?"}% | Horizon: ${s.horizon || "?"}\nThesis: ${s.thesis}\n\n--- MACRO CATALYST ANALYSIS ---\n${r.macro || "Not run"}\n\n--- RISK ASSESSMENT ---\n${r.risk || "Not run"}\n\n--- STRATEGY EVALUATION ---\n${r.strategy || "Not run"}\n\n--- PRE-TRADE CHECKLIST ---\n${r.checklist || "Not run"}`,
+};
+
+// ── State ──
+const state = {
+  step: 0,
+  setup: {
+    ticker: "Gold (XAU/USD)", direction: "LONG", entryPrice: "", positionSize: "",
+    horizon: "", thesis: "", priceData: "", macroData: "",
+    strategyDesc: "", traderType: "Swing trader", mistakes: "",
+  },
+  results: {},
+  loading: {},
+};
+const moduleIds = ["macro", "risk", "strategy", "checklist", "report"];
+
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── Call OUR backend (not Anthropic directly) with non-streaming fallback ──
+async function callBackend(systemPrompt, userMessage, onChunk) {
+  // First attempt: streaming
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ systemPrompt, userMessage }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
+      for (const line of lines) {
+        try {
+          const json = JSON.parse(line.slice(6));
+          if (json.type === "content_block_delta" && json.delta?.text) {
+            full += json.delta.text;
+            onChunk(full);
+          }
+        } catch {}
+      }
+    }
+    if (full.trim()) return full;
+    throw new Error("Empty streaming response");
+  } catch (streamErr) {
+    // Fallback: ask backend for a non-streaming response
+    onChunk("⏳ Streaming unavailable, retrying...");
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ systemPrompt, userMessage, stream: false }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const text = (data.content || []).map((b) => b.text || "").join("");
+    onChunk(text);
+    return text;
+  }
+}
+
+async function runModule(id) {
+  state.loading[id] = true;
+  state.results[id] = "";
+  render();
+  try {
+    const prompt = id === "report"
+      ? buildPrompt.report(state.setup, state.results)
+      : buildPrompt[id](state.setup);
+    await callBackend(SYSTEM_PROMPTS[id], prompt, (text) => {
+      state.results[id] = text;
+      updateResultText(id, text, true);
+    });
+  } catch (e) {
+    state.results[id] = `__ERROR__${e.message}`;
+  }
+  state.loading[id] = false;
+  render();
+}
+
+async function runAll() {
+  state.step = 1;
+  render();
+  const analysis = moduleIds.filter((i) => i !== "report");
+  for (let i = 0; i < analysis.length; i++) {
+    await runModule(analysis[i]);
+    if (i < analysis.length - 1) await delay(3000);
+  }
+  await delay(3000);
+  await runModule("report");
+  state.step = 5;
+  render();
+}
+
+// ── Lightweight DOM updates for streaming text ──
+function updateResultText(id, text, loading) {
+  const el = document.getElementById("result-" + id);
+  if (el) {
+    const isErr = text.startsWith("__ERROR__");
+    el.innerHTML = isErr
+      ? `<div class="error-text">⚠ ${text.replace("__ERROR__", "")}</div>`
+      : `<pre class="result-text">${escapeHtml(text)}</pre>` + (loading ? '<span class="cursor">▋</span>' : "");
+  }
+}
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const upd = (k) => (e) => { state.setup[k] = e.target.value; };
+
+// ── Render ──
+function render() {
+  const anyLoading = Object.values(state.loading).some(Boolean);
+  document.getElementById("statusDot").className = "status-dot" + (anyLoading ? " active" : "");
+  document.getElementById("statusText").textContent = anyLoading ? "ANALYZING" : "READY";
+
+  // Sidebar
+  const sb = document.getElementById("sidebar");
+  sb.innerHTML = "";
+  MODULES.forEach((m, i) => {
+    const b = document.createElement("button");
+    b.className = "nav-item" + (state.step === i ? " active" : "") + (state.results[m.id] && !String(state.results[m.id]).startsWith("__ERROR__") ? " done" : "");
+    b.innerHTML = `<span class="nav-icon">${m.icon}</span><span class="nav-label">${m.label}</span>` +
+      (state.results[m.id] && !String(state.results[m.id]).startsWith("__ERROR__") ? `<span class="nav-check">✓</span>` : "");
+    b.onclick = () => { state.step = i; render(); };
+    sb.appendChild(b);
+  });
+  const runAllBtn = document.createElement("button");
+  runAllBtn.className = "run-all-btn";
+  runAllBtn.textContent = anyLoading ? "RUNNING..." : "▶ RUN ALL MODULES";
+  runAllBtn.disabled = anyLoading || !state.setup.thesis;
+  runAllBtn.onclick = runAll;
+  sb.appendChild(runAllBtn);
+
+  const mp = document.getElementById("mainPanel");
+  if (state.step === 0) { mp.innerHTML = setupHtml(); bindSetup(); }
+  else { mp.innerHTML = analysisHtml(state.step); bindAnalysis(state.step); }
+}
+
+function field(label, key, placeholder, full, textarea, rows) {
+  const v = state.setup[key] || "";
+  const cls = "field" + (full ? " full" : "");
+  if (textarea) {
+    return `<label class="${cls}"><span class="field-label">${label}</span>
+      <textarea class="input textarea" rows="${rows||3}" data-key="${key}" placeholder="${placeholder}">${escapeHtml(v)}</textarea></label>`;
+  }
+  return `<label class="${cls}"><span class="field-label">${label}</span>
+    <input class="input" data-key="${key}" value="${escapeHtml(v)}" placeholder="${placeholder}" /></label>`;
+}
+
+function setupHtml() {
+  return `<div class="setup-panel fade-in">
+    <div class="panel-title">TRADE SETUP <span class="dim">— Define your position</span></div>
+    <div class="form-grid">
+      <label class="field"><span class="field-label">ASSET</span>
+        <select class="input" data-key="ticker">
+          <option${state.setup.ticker.startsWith("Gold")?" selected":""}>Gold (XAU/USD)</option>
+          <option${state.setup.ticker.startsWith("Silver")?" selected":""}>Silver (XAG/USD)</option>
+          <option${state.setup.ticker.startsWith("Bitcoin")?" selected":""}>Bitcoin (BTC/USD)</option>
+        </select></label>
+      <label class="field"><span class="field-label">DIRECTION</span>
+        <select class="input" data-key="direction">
+          <option${state.setup.direction==="LONG"?" selected":""}>LONG</option>
+          <option${state.setup.direction==="SHORT"?" selected":""}>SHORT</option>
+        </select></label>
+      ${field("ENTRY PRICE ($)","entryPrice","e.g. 2350 / 30 / 68000")}
+      ${field("POSITION SIZE (% of portfolio)","positionSize","e.g. 5")}
+      ${field("TIME HORIZON","horizon","e.g. 30 days, swing trade")}
+      <label class="field"><span class="field-label">ASSET CLASS</span>
+        <input class="input" value="Precious Metals / Crypto" readonly style="opacity:0.6;cursor:not-allowed" /></label>
+      ${field("INVESTMENT THESIS ★ REQUIRED","thesis","Why this trade works — the macro catalyst (Fed pivot, real yields falling, dollar weakness, ETF inflows), the technical setup, and your edge...",true,true,3)}
+      ${field("MARKET & PRICE DATA (recent price action, ATR, key levels, volatility)","priceData","Paste recent price action, ATR, support/resistance levels, volatility readings...",true,true,4)}
+      ${field("MACRO DATA (for Module 02 — optional)","macroData","Fed stance & next FOMC date, latest CPI/PCE, 10Y real yield, DXY level/trend, ETF flows (BTC), central-bank buying (gold)... Leave blank to reason from the last known regime.",true,true,3)}
+      ${field("STRATEGY DESCRIPTION (for Module 04)","strategyDesc","Describe your strategy — e.g. ICT/SMC killzone entries on XAUUSD, momentum on BTC, gold/silver ratio mean reversion...",true,true,3)}
+      ${field("YOUR TRADING STYLE","traderType","e.g. Swing trader, scalper, momentum...",true,false)}
+      ${field("YOUR COMMON MISTAKES (one per line)","mistakes","e.g. Entering too large when excited\nIgnoring DXY direction\nChasing breakouts",true,true,3)}
+    </div>
+    <button class="proceed-btn" id="proceedBtn"${!state.setup.thesis?" disabled":""}>PROCEED TO ANALYSIS MODULES →</button>
+  </div>`;
+}
+
+function bindSetup() {
+  document.querySelectorAll("[data-key]").forEach((el) => {
+    el.addEventListener("input", (e) => { state.setup[el.dataset.key] = e.target.value;
+      if (el.dataset.key === "thesis") {
+        const pb = document.getElementById("proceedBtn");
+        const rab = document.querySelector(".run-all-btn");
+        if (pb) pb.disabled = !e.target.value;
+        if (rab) rab.disabled = !e.target.value;
+      }
+    });
+    el.addEventListener("change", (e) => { state.setup[el.dataset.key] = e.target.value; });
+  });
+  const pb = document.getElementById("proceedBtn");
+  if (pb) pb.onclick = () => { if (state.setup.thesis) { state.step = 1; render(); } };
+}
+
+const RESULT_LABELS = {
+  1: ["macro", "MACRO CATALYST ANALYSIS"],
+  2: ["risk", "RISK ENGINE OUTPUT"],
+  3: ["strategy", "STRATEGY EVALUATION"],
+  4: ["checklist", "PRE-TRADE CHECKLIST"],
+  5: ["report", "UNIFIED WAR ROOM REPORT"],
+};
+
+function analysisHtml(step) {
+  const m = MODULES[step];
+  const [rid, rlabel] = RESULT_LABELS[step];
+  const loading = state.loading[rid];
+  const content = state.results[rid] || "";
+  const isErr = String(content).startsWith("__ERROR__");
+  let bodyInner;
+  if (loading && !content) bodyInner = `<span class="loading-line">ANALYZING...</span>`;
+  else if (isErr) bodyInner = `<div class="error-text">⚠ ${escapeHtml(content.replace("__ERROR__",""))}</div>`;
+  else bodyInner = `<pre class="result-text">${escapeHtml(content)}</pre>` + (loading ? '<span class="cursor">▋</span>' : "");
+
+  const isReport = step === 5;
+  return `<div class="analysis-panel fade-in">
+    <div class="panel-header">
+      <div class="panel-title">${m.icon} ${m.label} <span class="dim">— ${escapeHtml(state.setup.ticker)}</span></div>
+      <button class="run-btn ${isReport?"report-btn":""}" id="runBtn"${loading?" disabled":""}>
+        ${loading ? (isReport?"GENERATING...":"ANALYZING...") : (isReport?"▶ GENERATE REPORT":"▶ RUN MODULE")}</button>
+    </div>
+    <div class="result-panel">
+      <div class="result-label">${rlabel}</div>
+      <div class="result-body" id="result-${rid}">${bodyInner}</div>
+    </div>
+    <div class="module-nav">
+      ${step>0?`<button class="nav-btn" id="prevBtn">← PREV</button>`:""}
+      ${step<5?`<button class="nav-btn" id="nextBtn">NEXT →</button>`:""}
+    </div>
+  </div>`;
+}
+
+function bindAnalysis(step) {
+  const [rid] = RESULT_LABELS[step];
+  const rb = document.getElementById("runBtn");
+  if (rb) rb.onclick = () => runModule(rid);
+  const pv = document.getElementById("prevBtn");
+  if (pv) pv.onclick = () => { state.step = step - 1; render(); };
+  const nx = document.getElementById("nextBtn");
+  if (nx) nx.onclick = () => { state.step = step + 1; render(); };
+}
+
+render();
+</script>
+</body>
+</html>
