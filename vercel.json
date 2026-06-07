@@ -1,8 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "echo 'No build step — static site with serverless functions'",
-  "outputDirectory": "public",
-  "rewrites": [
-    { "source": "/", "destination": "/index.html" }
-  ]
+  "buildCommand": "bash your-script-name.sh",
+  "outputDirectory": "public"
 }
