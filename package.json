@@ -2,8 +2,14 @@
   "name": "war-room-risk-agent",
   "version": "1.0.0",
   "private": true,
-  "description": "Unified Risk Assessment Agent for Gold, Silver & Bitcoin — powered by Claude",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14",
+    "react": "18",
+    "react-dom": "18"
   }
 }
